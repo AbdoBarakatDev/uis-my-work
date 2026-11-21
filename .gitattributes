@@ -1,0 +1,4 @@
+# keep the installers byte-for-byte (CRLF for PowerShell, LF for bash)
+installers/** -text
+*.sh -text
+*.ps1 -text

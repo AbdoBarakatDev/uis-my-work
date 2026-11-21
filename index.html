@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UIS My Work</title>
+<meta name="description" content="UIS My Work: a Chrome and Edge extension for the UIS team. Your portal tasks in one focused dashboard, with setup for Windows and Mac.">
+<meta name="uis-version" content="4.10.0">
+<meta name="theme-color" content="#0a2332">
+<link rel="icon" type="image/png" href="assets/icon32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&family=Lexend:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f7fa; --surface: #ffffff; --surface-2: #f9fbfd; --ink: #0a2332; --ink-2: #33475b; --muted: #5b6b7a;
+    --line: #e2e8ee; --accent: #1769aa; --accent-hover: #12588f; --accent-ink: #ffffff; --accent-tint: #eef5fc;
+    --hero: #0a2332; --hero-ink: #ffffff; --hero-muted: #b7c7d6; --ok: #137a3f; --ok-tint: #e8f5ee; --warn: #8a5300; --warn-tint: #fdf4e6;
+    --code-bg: #eef2f6; --shadow: 0 1px 2px rgba(10,35,50,.06), 0 4px 14px rgba(10,35,50,.07); --shadow-lg: 0 24px 60px rgba(3,15,25,.35);
+    --radius: 14px; --font: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif; --font-h: 'Lexend', system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1620; --surface: #10202d; --surface-2: #0e1c28; --ink: #e8eff6; --ink-2: #c5d2de; --muted: #93a7b9;
+      --line: #213547; --accent: #5aa6e6; --accent-hover: #7bb8ec; --accent-ink: #06121c; --accent-tint: #132b40;
+      --hero: #071119; --hero-ink: #ffffff; --hero-muted: #a9bccd; --ok: #4cc27f; --ok-tint: #10291c; --warn: #e0a149; --warn-tint: #2b2112;
+      --code-bg: #182a3a; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1620; --surface: #10202d; --surface-2: #0e1c28; --ink: #e8eff6; --ink-2: #c5d2de; --muted: #93a7b9;
+    --line: #213547; --accent: #5aa6e6; --accent-hover: #7bb8ec; --accent-ink: #06121c; --accent-tint: #132b40;
+    --hero: #071119; --hero-ink: #ffffff; --hero-muted: #a9bccd; --ok: #4cc27f; --ok-tint: #10291c; --warn: #e0a149; --warn-tint: #2b2112;
+    --code-bg: #182a3a; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
+  }
+  html[lang="ar"] { --font: 'IBM Plex Sans Arabic', 'Source Sans 3', system-ui, sans-serif; --font-h: 'IBM Plex Sans Arabic', 'Lexend', system-ui, sans-serif; }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--font); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:hover { color: var(--accent-hover); }
+  h1, h2, h3 { font-family: var(--font-h); line-height: 1.2; margin: 0; letter-spacing: -0.01em; }
+  html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3 { letter-spacing: 0; line-height: 1.35; }
+  p { margin: 0; }
+  code { font: 0.86em/1.4 ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 6px; overflow-wrap: anywhere; direction: ltr; unicode-bidi: isolate; }
+  kbd { font: 600 0.8em/1 var(--font); border: 1px solid var(--line); border-bottom-width: 2px; background: var(--surface); border-radius: 6px; padding: 3px 6px; white-space: nowrap; direction: ltr; unicode-bidi: isolate; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* ---------- top bar ---------- */
+  .top { position: sticky; top: 0; z-index: 20; background: var(--hero); background: color-mix(in srgb, var(--hero) 92%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid rgba(255,255,255,.08); }
+  .top .wrap { display: flex; align-items: center; gap: 16px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font: 600 18px/1 var(--font-h); white-space: nowrap; }
+  .brand:hover { color: #fff; }
+  .mark { width: 32px; height: 32px; border-radius: 9px; background: #1769aa; color: #fff; display: grid; place-items: center; font: 700 17px/1 'Lexend', sans-serif; box-shadow: inset 0 -2px 0 rgba(0,0,0,.18); }
+  .nav { display: flex; gap: 4px; margin-inline-start: auto; align-items: center; }
+  .nav a { color: var(--hero-muted); text-decoration: none; font-weight: 600; font-size: 15px; padding: 8px 10px; border-radius: 8px; }
+  .nav a:hover { color: #fff; background: rgba(255,255,255,.08); }
+  .lang { font: 600 14px/1 var(--font); color: #fff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  .lang:hover { background: rgba(255,255,255,.18); }
+  html[lang="en"] .lang { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+  @media (max-width: 640px) { .nav a.hide-sm { display: none; } .brand span:not(.mark) { display: none; } }
+
+  /* ---------- hero ---------- */
+  .hero { background: radial-gradient(1200px 500px at 85% -10%, rgba(23,105,170,.55), transparent 60%), var(--hero); color: var(--hero-ink); padding: 64px 0 72px; overflow: hidden; }
+  .hero .wrap { display: grid; grid-template-columns: 1.02fr 1fr; gap: 48px; align-items: center; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: #cfe3f5; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); padding: 6px 12px; border-radius: 999px; }
+  .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: #4cc27f; box-shadow: 0 0 0 3px rgba(76,194,127,.25); }
+  .hero h1 { font-size: clamp(34px, 5vw, 54px); margin: 18px 0 16px; font-weight: 700; }
+  .hero h1 em { font-style: normal; color: #8cc6f2; }
+  .hero .sub { font-size: 19px; color: var(--hero-muted); max-width: 34em; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 18px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 600 16px/1 var(--font); padding: 13px 20px; border-radius: 10px; text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+  .btn:active { transform: translateY(1px); }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:hover { background: var(--accent-hover); color: var(--accent-ink); }
+  .hero .btn-primary { background: #2b86d1; color: #fff; }
+  .hero .btn-primary:hover { background: #3a95df; color: #fff; }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .hero .btn-ghost { color: #fff; border-color: rgba(255,255,255,.28); }
+  .hero .btn-ghost:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,.06); }
+  .meta { font-size: 14px; color: var(--hero-muted); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .meta svg { width: 15px; height: 15px; opacity: .85; }
+
+  /* dashboard illustration */
+  .mock { background: #f5f7fa; color: #0a2332; border-radius: 14px; box-shadow: var(--shadow-lg); overflow: hidden; border: 1px solid rgba(255,255,255,.12); font-family: 'Source Sans 3', sans-serif; direction: ltr; transform: perspective(1400px) rotateY(-6deg) rotateX(2deg); }
+  html[dir="rtl"] .mock { transform: perspective(1400px) rotateY(6deg) rotateX(2deg); }
+  .mock-bar { display: flex; align-items: center; gap: 10px; background: #e7ecf1; padding: 9px 12px; }
+  .mock-bar .dots { display: flex; gap: 6px; } .mock-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: #c9d3dc; }
+  .mock-url { flex: 1; background: #fff; border-radius: 6px; font-size: 12px; color: #5b6b7a; padding: 4px 10px; }
+  .mock-top { display: flex; align-items: center; gap: 12px; background: #0a2332; padding: 9px 12px; }
+  .mock-top .mark { width: 24px; height: 24px; font-size: 13px; border-radius: 7px; }
+  .mock-nav { display: flex; gap: 4px; overflow: hidden; }
+  .mock-nav b { font-weight: 600; font-size: 12px; color: #b7c7d6; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+  .mock-nav b.on { background: rgba(255,255,255,.14); color: #fff; }
+  .mock-nav em { font-style: normal; background: #d64545; color: #fff; border-radius: 99px; padding: 0 5px; font-size: 10px; margin-left: 3px; }
+  .mock-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; padding: 12px; }
+  .mcol { background: #eaeff4; border-radius: 9px; padding: 8px; display: flex; flex-direction: column; gap: 7px; min-height: 210px; }
+  .mcol h4 { margin: 0 0 2px; font: 600 11px/1 'Lexend', sans-serif; color: #5b6b7a; text-transform: uppercase; letter-spacing: .04em; display: flex; justify-content: space-between; }
+  .mc { background: #fff; border-radius: 7px; padding: 7px 8px; box-shadow: 0 1px 2px rgba(10,35,50,.08); border-left: 3px solid #e2e8ee; }
+  .mc.mine { border-left-color: #1769aa; background: #f4f9fe; }
+  .mc p { font-size: 12px; line-height: 1.3; font-weight: 600; margin: 0 0 6px; }
+  .mc div { display: flex; justify-content: space-between; align-items: center; }
+  .tag { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; }
+  .t-bug { background: #fde8ea; color: #a1172b; } .t-feat { background: #e3eefb; color: #12588f; } .t-task { background: #e8f5ee; color: #137a3f; }
+  .av { width: 18px; height: 18px; border-radius: 50%; background: #c9d9e8; color: #0a2332; font-size: 9px; font-weight: 700; display: grid; place-items: center; }
+  .mc.done p { color: #5b6b7a; text-decoration: line-through; text-decoration-color: #9fb0bf; }
+
+  /* ---------- sections ---------- */
+  section { padding: 72px 0; }
+  .sec-h { max-width: 720px; margin-bottom: 36px; }
+  .sec-h h2 { font-size: clamp(26px, 3.4vw, 36px); margin-bottom: 10px; }
+  .sec-h p { color: var(--muted); font-size: 18px; }
+  .kicker { display: block; font: 600 13px/1 var(--font-h); text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: 12px; }
+  html[lang="ar"] .kicker { letter-spacing: 0; font-size: 14px; }
+
+  .steps3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: s; }
+  .step3 { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); position: relative; }
+  .step3 .num { width: 34px; height: 34px; border-radius: 10px; background: var(--accent-tint); color: var(--accent); font: 700 16px/34px var(--font-h); text-align: center; margin-bottom: 14px; }
+  .step3 h3 { font-size: 18px; margin-bottom: 6px; }
+  .step3 p { color: var(--muted); font-size: 16px; }
+
+  .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .feat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .feat .ic { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; background: var(--accent-tint); color: var(--accent); margin-bottom: 14px; }
+  .feat .ic svg { width: 22px; height: 22px; }
+  .feat h3 { font-size: 18px; margin-bottom: 6px; }
+  .feat p { color: var(--muted); font-size: 16px; }
+
+  /* ---------- setup ---------- */
+  #setup { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+  .tab { font: 600 15px/1 var(--font); color: var(--muted); background: transparent; border: 0; padding: 11px 16px; border-radius: 9px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .tab svg { width: 17px; height: 17px; }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .tab .yours { font-size: 11px; font-weight: 700; color: var(--ok); background: var(--ok-tint); padding: 3px 7px; border-radius: 99px; }
+  .panel[hidden] { display: none; }
+  .setup-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .steps > li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .steps .n { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 700 17px/40px var(--font-h); text-align: center; }
+  .steps h3 { font-size: 18px; margin: 7px 0 6px; }
+  .steps p { color: var(--ink-2); font-size: 16px; }
+  .steps p + p, .steps p + .dl, .steps .dl + p { margin-top: 10px; }
+  .note { font-size: 14px !important; color: var(--muted) !important; }
+  .dl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .path { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .path code { font-size: 14px; padding: 6px 10px; color: var(--ink); }
+  .side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
+  .box { border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; background: var(--surface); }
+  .box h3 { font-size: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .box h3 svg { width: 18px; height: 18px; color: var(--ok); flex: none; }
+  .box ul { margin: 0; padding-inline-start: 18px; color: var(--ink-2); font-size: 15px; display: flex; flex-direction: column; gap: 6px; }
+  .box p { font-size: 15px; color: var(--ink-2); }
+  .box p + p, .box ul + p, .box p + .dl { margin-top: 10px; }
+  .box .btn { font-size: 14px; padding: 10px 14px; }
+  .box.warn { background: var(--warn-tint); border-color: transparent; }
+  .box.warn h3 svg { color: var(--warn); }
+
+  /* ---------- faq ---------- */
+  .faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 20px; }
+  summary { cursor: pointer; list-style: none; font: 600 17px/1.4 var(--font-h); padding: 18px 28px 18px 0; position: relative; }
+  html[dir="rtl"] summary { padding: 18px 0 18px 28px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: '+'; position: absolute; inset-inline-end: 0; top: 14px; font: 400 24px/1 var(--font); color: var(--muted); }
+  details[open] summary::after { content: '–'; }
+  details p { color: var(--ink-2); font-size: 16px; padding-bottom: 18px; }
+
+  footer { padding: 36px 0 48px; color: var(--muted); font-size: 15px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+  footer nav { display: flex; gap: 18px; flex-wrap: wrap; }
+
+  .mobile-note { display: none; background: var(--warn-tint); color: var(--ink); border-radius: 10px; padding: 10px 14px; font-size: 15px; margin-top: 16px; }
+  .is-mobile .mobile-note { display: block; }
+
+  @media (max-width: 960px) {
+    .hero .wrap { grid-template-columns: 1fr; gap: 40px; }
+    .mock { transform: none !important; }
+    .setup-grid { grid-template-columns: 1fr; }
+    .side { position: static; }
+    .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    section { padding: 52px 0; }
+    .hero { padding: 40px 0 48px; }
+    .steps3, .features, .faq { grid-template-columns: 1fr; }
+    .mock-board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mock-board .mcol:nth-child(4) { display: none; }
+    .steps > li { grid-template-columns: 1fr; gap: 6px; }
+    .tabs { display: flex; }
+    .tab { flex: 1 1 auto; justify-content: center; padding: 11px 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn { transition: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-win" viewBox="0 0 24 24"><path fill="currentColor" d="M3 5.5 10.5 4.5v7H3zm8.5-1.1L21 3v8.5h-9.5zM3 12.5h7.5v7L3 18.5zm8.5 0H21V21l-9.5-1.4z"/></symbol>
+  <symbol id="i-mac" viewBox="0 0 24 24"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.8-3.5.8-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.6zM14.1 5.6c.6-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.6 2.8-1.4z"/></symbol>
+  <symbol id="i-zip" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M10 7h1M10 11h1M10 15h1m-1 0v3h1v-3"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 19.5h14"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 5 6v5c0 4.6 3 8.4 7 10 4-1.6 7-5.4 7-10V6zm-3 9 2 2 4-4"/></symbol>
+  <symbol id="i-off" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3v8M7.5 6.3a7 7 0 1 0 9 0"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M13 2 4.5 13.5H12L11 22l8.5-11.5H12z"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="UIS My Work"><span class="mark" aria-hidden="true">U</span><span>UIS My Work</span></a>
+    <nav class="nav" aria-label="Page">
+      <a href="#features" class="hide-sm" data-i18n="nav.features">Features</a>
+      <a href="#setup" data-i18n="nav.setup">Setup</a>
+      <a href="#faq" class="hide-sm" data-i18n="nav.faq">FAQ</a>
+      <button class="lang" id="langBtn" type="button" lang="ar">عربي</button>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <span class="eyebrow"><i aria-hidden="true"></i><span data-i18n="hero.eyebrow">Chrome &amp; Edge extension for the UIS team</span></span>
+        <h1 data-i18n="hero.title">Your portal work, in one <em>focused</em> dashboard.</h1>
+        <p class="sub" data-i18n="hero.sub">UIS My Work sits on top of portal.uiscom.com: your day at a glance, tasks moved through review, testing and acceptance, approvals in one place, and new versions that install themselves.</p>
+        <div class="ctas">
+          <a class="btn btn-primary" id="heroSetup" href="#setup"><svg aria-hidden="true"><use href="#i-down"/></svg><span data-i18n="cta.any">Set it up</span></a>
+          <a class="btn btn-ghost js-dl" data-file="uis-my-work.zip" href="https://github.com/AbdoBarakatDev/uis-my-work/releases/latest/download/uis-my-work.zip"><svg aria-hidden="true"><use href="#i-zip"/></svg><span data-i18n="cta.zip">Download zip</span> <span class="js-version" dir="ltr">v4.10.0</span></a>
+        </div>
+        <div class="meta">
+          <span><svg aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="hero.m1">Uses your portal sign-in</span></span>
+          <span><svg aria-hidden="true"><use href="#i-win"/></svg><span data-i18n="hero.m2">Windows &amp; Mac</span></span>
+          <span><svg aria-hidden="true"><use href="#i-bolt"/></svg><span data-i18n="hero.m3">Updates itself</span></span>
+        </div>
+        <p class="mobile-note" data-i18n="hero.mobile">Open this page on your computer: UIS My Work runs in Chrome or Edge on Windows and Mac.</p>
+      </div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mock-url">UIS My Work · Board</span></div>
+        <div class="mock-top"><span class="mark">U</span><span class="mock-nav"><b>My Day</b><b class="on">Board</b><b>List</b><b>Approvals<em>3</em></b><b>Requests</b><b>Team</b><b>Chat</b></span></div>
+        <div class="mock-board">
+          <div class="mcol"><h4>Doing <span>3</span></h4>
+            <div class="mc mine"><p>Export invoices to PDF</p><div><span class="tag t-feat">Feature</span><span class="av">KM</span></div></div>
+            <div class="mc mine"><p>Fix session timeout on login</p><div><span class="tag t-bug">Bug</span><span class="av">KM</span></div></div>
+            <div class="mc"><p>Sync stock levels nightly</p><div><span class="tag t-task">Task</span><span class="av">MS</span></div></div>
+          </div>
+          <div class="mcol"><h4>Review <span>2</span></h4>
+            <div class="mc"><p>New approvals screen</p><div><span class="tag t-feat">Feature</span><span class="av">RE</span></div></div>
+            <div class="mc mine"><p>Arabic labels on reports</p><div><span class="tag t-task">Task</span><span class="av">KM</span></div></div>
+          </div>
+          <div class="mcol"><h4>Testing <span>2</span></h4>
+            <div class="mc"><p>Payment retry flow</p><div><span class="tag t-bug">Bug</span><span class="av">NH</span></div></div>
+            <div class="mc"><p>Customer search filters</p><div><span class="tag t-feat">Feature</span><span class="av">MS</span></div></div>
+          </div>
+          <div class="mcol"><h4>Done <span>9</span></h4>
+            <div class="mc done"><p>Dark mode for dashboard</p><div><span class="tag t-feat">Feature</span><span class="av">RE</span></div></div>
+            <div class="mc done"><p>Weekly summary email</p><div><span class="tag t-task">Task</span><span class="av">KM</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="kicker" data-i18n="how.kicker">How it works</span>
+        <h2 data-i18n="how.title">Set it up once. Then forget about updates.</h2>
+      </div>
+      <div class="steps3">
+        <div class="step3"><div class="num">1</div><h3 data-i18n="how.1t">Run the installer</h3><p data-i18n="how.1d">About a minute, for your user only, no admin rights. It downloads the extension and the small updater.</p></div>
+        <div class="step3"><div class="num">2</div><h3 data-i18n="how.2t">Load it in your browser</h3><p data-i18n="how.2d">Load unpacked in the extensions page, and paste the folder path the installer copied for you.</p></div>
+        <div class="step3"><div class="num">3</div><h3 data-i18n="how.3t">Updates arrive by themselves</h3><p data-i18n="how.3d">Each new version installs in a few seconds. No zip, no reload button.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="kicker" data-i18n="f.kicker">Features</span>
+        <h2 data-i18n="f.title">Everything for your daily portal work</h2>
+        <p data-i18n="f.sub">It works on your own signed-in portal tab, so every action is recorded as you.</p>
+      </div>
+      <div class="features">
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3v2m0 14v2M5 12H3m18 0h-2M6.3 6.3 4.9 4.9m14.2 14.2-1.4-1.4m0-11.4 1.4-1.4M4.9 19.1l1.4-1.4M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div><h3 data-i18n="f1t">My Day</h3><p data-i18n="f1d">What to focus on today, approvals waiting on you, and upcoming deadlines.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 4h4.5v16H4zm5.75 0h4.5v10h-4.5zm5.75 0H20v13h-4.5z"/></svg></div><h3 data-i18n="f2t">Board &amp; list</h3><p data-i18n="f2d">A Kanban board from backlog to done. Drag a card to the next allowed column, or work from the list.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 11.5 11.5 14 16 9.5M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg></div><h3 data-i18n="f3t">Approvals</h3><p data-i18n="f3d">Tasks waiting for you to review, test or accept, with the evidence and reason the portal asks for.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 4h8l3 3v13H5V4zm0 7h8M8 15h5"/></svg></div><h3 data-i18n="f4t">Requests</h3><p data-i18n="f4d">New tasks, edits and deletions that need an approver’s decision, with their history.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg></div><h3 data-i18n="f5t">Team &amp; chat</h3><p data-i18n="f5d">Each teammate’s live progress and direct messages, right next to your tasks.</p></div>
+        <div class="feat"><div class="ic"><svg aria-hidden="true"><use href="#i-bolt"/></svg></div><h3 data-i18n="f6t">Live updates</h3><p data-i18n="f6d">New versions install in seconds when you are not in the middle of something, and the tab reopens by itself.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="setup">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="kicker" data-i18n="s.kicker">Setup</span>
+        <h2 data-i18n="s.title">Install UIS My Work</h2>
+        <p data-i18n="s.sub">Pick your computer. You do this once; after that, new versions install by themselves.</p>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Your computer">
+        <button class="tab" role="tab" id="tab-win" aria-controls="panel-win" aria-selected="true"><svg aria-hidden="true"><use href="#i-win"/></svg><span data-i18n="tab.win">Windows</span><span class="yours" hidden data-i18n="tab.yours">Your computer</span></button>
+        <button class="tab" role="tab" id="tab-mac" aria-controls="panel-mac" aria-selected="false" tabindex="-1"><svg aria-hidden="true"><use href="#i-mac"/></svg><span data-i18n="tab.mac">Mac</span><span class="yours" hidden data-i18n="tab.yours">Your computer</span></button>
+        <button class="tab" role="tab" id="tab-zip" aria-controls="panel-zip" aria-selected="false" tabindex="-1"><svg aria-hidden="true"><use href="#i-zip"/></svg><span data-i18n="tab.zip">Without live updates</span></button>
+      </div>
+
+      <!-- Windows -->
+      <div class="panel" role="tabpanel" id="panel-win" aria-labelledby="tab-win">
+        <div class="setup-grid">
+          <ol class="steps">
+            <li><span class="n">1</span><div>
+              <h3 data-i18n="w1t">Download the installer</h3>
+              <div class="dl"><a class="btn btn-primary js-dl" data-file="UIS-MyWork-LiveUpdates.ps1" href="https://github.com/AbdoBarakatDev/uis-my-work/releases/latest/download/UIS-MyWork-LiveUpdates.ps1"><svg aria-hidden="true"><use href="#i-down"/></svg><span data-i18n="w1b">Download for Windows</span></a><span class="note"><code>UIS-MyWork-LiveUpdates.ps1</code></span></div>
+              <p class="note" data-i18n="keep">If Chrome asks whether to keep the file, choose Keep. Chrome asks this for every script file.</p>
+            </div></li>
+            <li><span class="n">2</span><div>
+              <h3 data-i18n="w2t">Run it once</h3>
+              <p data-i18n="w2d">Open your Downloads folder, right-click <code>UIS-MyWork-LiveUpdates.ps1</code> and choose <b>Run with PowerShell</b>. On Windows 11, click <b>Show more options</b> first. It takes about a minute, installs for your Windows user only and needs no admin rights. At the end it copies the extension’s folder path for you.</p>
+            </div></li>
+            <li><span class="n">3</span><div>
+              <h3 data-i18n="w3t">Load it in Chrome or Edge</h3>
+              <p data-i18n="w3d">Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>), turn on <b>Developer mode</b>, and remove “UIS Portal – My Work Tracker” if you have an older copy. Click <b>Load unpacked</b>, paste the folder path (<kbd>Ctrl</kbd>+<kbd>V</kbd>) into the address box and click <b>Select Folder</b>.</p>
+              <div class="path"><span data-i18n="folder">Folder:</span><code>%LOCALAPPDATA%\UIS\MyWork\extension</code></div>
+            </div></li>
+            <li><span class="n">4</span><div>
+              <h3 data-i18n="go.t">Start</h3>
+              <p data-i18n="go.d">Sign in to portal.uiscom.com, then click the UIS My Work icon (pin it from the puzzle-piece menu) and choose <b>Open dashboard</b>.</p>
+            </div></li>
+          </ol>
+          <aside class="side">
+            <div class="box">
+              <h3><svg aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="does.t">What the installer does</span></h3>
+              <ul>
+                <li data-i18n="does.w1">Puts the extension in <code>%LOCALAPPDATA%\UIS\MyWork\extension</code></li>
+                <li data-i18n="does.w2">Adds a small updater in <code>%LOCALAPPDATA%\UIS\MyWork\updater</code> and registers it for Chrome and Edge under your Windows user. Only the UIS My Work extension can start it.</li>
+                <li data-i18n="does.all">The updater downloads only from the UIS update server, checks each download’s SHA-256 checksum, and never runs what it downloads.</li>
+              </ul>
+              <p><a class="js-src" href="https://github.com/AbdoBarakatDev/uis-my-work/tree/main/installers/windows" data-i18n="does.src">Read the installer’s source</a></p>
+            </div>
+            <div class="box">
+              <h3><svg aria-hidden="true" style="color:var(--muted)"><use href="#i-off"/></svg><span data-i18n="off.t">Turn live updates off</span></h3>
+              <p data-i18n="off.d">Run the remover the same way. It removes the updater and keeps the extension.</p>
+              <div class="dl" style="margin-top:10px"><a class="btn btn-ghost js-dl" data-file="UIS-MyWork-RemoveLiveUpdates.ps1" href="https://github.com/AbdoBarakatDev/uis-my-work/releases/latest/download/UIS-MyWork-RemoveLiveUpdates.ps1"><svg aria-hidden="true"><use href="#i-down"/></svg><span data-i18n="off.b">Download the remover</span></a></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- Mac -->
+      <div class="panel" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" hidden>
+        <div class="setup-grid">
+          <ol class="steps">
+            <li><span class="n">1</span><div>
+              <h3 data-i18n="w1t">Download the installer</h3>
+              <div class="dl"><a class="btn btn-primary js-dl" data-file="UIS-MyWork-LiveUpdates.sh" href="https://github.com/AbdoBarakatDev/uis-my-work/releases/latest/download/UIS-MyWork-LiveUpdates.sh"><svg aria-hidden="true"><use href="#i-down"/></svg><span data-i18n="m1b">Download for Mac</span></a><span class="note"><code>UIS-MyWork-LiveUpdates.sh</code></span></div>
+              <p class="note" data-i18n="keep">If Chrome asks whether to keep the file, choose Keep. Chrome asks this for every script file.</p>
+            </div></li>
+            <li><span class="n">2</span><div>
+              <h3 data-i18n="w2t">Run it once</h3>
+              <p data-i18n="m2d">Open <b>Terminal</b> (press <kbd>⌘</kbd>+<kbd>Space</kbd>, type Terminal, press <kbd>Return</kbd>). Type <code>bash</code> and a space, drag <code>UIS-MyWork-LiveUpdates.sh</code> from your Downloads folder into the Terminal window, and press <kbd>Return</kbd>. It takes about a minute, installs for your Mac user only and needs no admin password. At the end it copies the extension’s folder path for you.</p>
+            </div></li>
+            <li><span class="n">3</span><div>
+              <h3 data-i18n="w3t">Load it in Chrome or Edge</h3>
+              <p data-i18n="m3d">Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>), turn on <b>Developer mode</b>, and remove “UIS Portal – My Work Tracker” if you have an older copy. Click <b>Load unpacked</b>, press <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>G</kbd>, paste the folder path (<kbd>⌘</kbd>+<kbd>V</kbd>), press <kbd>Return</kbd> and click <b>Select</b>.</p>
+              <div class="path"><span data-i18n="folder">Folder:</span><code>~/Library/Application Support/UIS/MyWork/extension</code></div>
+            </div></li>
+            <li><span class="n">4</span><div>
+              <h3 data-i18n="go.t">Start</h3>
+              <p data-i18n="go.d">Sign in to portal.uiscom.com, then click the UIS My Work icon (pin it from the puzzle-piece menu) and choose <b>Open dashboard</b>.</p>
+            </div></li>
+          </ol>
+          <aside class="side">
+            <div class="box">
+              <h3><svg aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="does.t">What the installer does</span></h3>
+              <ul>
+                <li data-i18n="does.m1">Puts the extension in <code>~/Library/Application Support/UIS/MyWork/extension</code></li>
+                <li data-i18n="does.m2">Adds a small updater next to it and registers it for Chrome, Edge and Brave under your Mac user. Only the UIS My Work extension can start it.</li>
+                <li data-i18n="does.all">The updater downloads only from the UIS update server, checks each download’s SHA-256 checksum, and never runs what it downloads.</li>
+              </ul>
+              <p><a class="js-src" href="https://github.com/AbdoBarakatDev/uis-my-work/tree/main/installers/mac" data-i18n="does.src">Read the installer’s source</a></p>
+            </div>
+            <div class="box">
+              <h3><svg aria-hidden="true" style="color:var(--muted)"><use href="#i-off"/></svg><span data-i18n="off.t">Turn live updates off</span></h3>
+              <p data-i18n="off.d">Run the remover the same way. It removes the updater and keeps the extension.</p>
+              <div class="dl" style="margin-top:10px"><a class="btn btn-ghost js-dl" data-file="UIS-MyWork-RemoveLiveUpdates.sh" href="https://github.com/AbdoBarakatDev/uis-my-work/releases/latest/download/UIS-MyWork-RemoveLiveUpdates.sh"><svg aria-hidden="true"><use href="#i-down"/></svg><span data-i18n="off.b">Download the remover</span></a></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- Zip -->
+      <div class="panel" role="tabpanel" id="panel-zip" aria-labelledby="tab-zip" hidden>
+        <div class="setup-grid">
+          <ol class="steps">
+            <li><span class="n">1</span><div>
+              <h3 data-i18n="z1t">Download the extension</h3>
+              <div class="dl"><a class="btn btn-primary js-dl" data-file="uis-my-work.zip" href="https://github.com/AbdoBarakatDev/uis-my-work/releases/latest/download/uis-my-work.zip"><svg aria-hidden="true"><use href="#i-zip"/></svg><span data-i18n="cta.zip">Download zip</span> <span class="js-version" dir="ltr">v4.10.0</span></a></div>
+            </div></li>
+            <li><span class="n">2</span><div>
+              <h3 data-i18n="z2t">Unzip it into a folder you keep</h3>
+              <p data-i18n="z2d">For example <code>Documents/UIS My Work</code>. Not your Downloads folder: the browser loads the extension from this folder every time.</p>
+            </div></li>
+            <li><span class="n">3</span><div>
+              <h3 data-i18n="w3t">Load it in Chrome or Edge</h3>
+              <p data-i18n="z3d">Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>), turn on <b>Developer mode</b>, click <b>Load unpacked</b> and choose that folder.</p>
+            </div></li>
+            <li><span class="n">4</span><div>
+              <h3 data-i18n="z4t">Updating later</h3>
+              <p data-i18n="z4d">When the extension shows an update, download the new zip, unzip it over the same folder, and press ↻ on the extension’s card in <code>chrome://extensions</code>. You can switch to live updates any time.</p>
+            </div></li>
+          </ol>
+          <aside class="side">
+            <div class="box warn">
+              <h3><svg aria-hidden="true"><use href="#i-bolt"/></svg><span data-i18n="zw.t">Updates are by hand</span></h3>
+              <p data-i18n="zw.d">This way works on any computer, but every new version is a new zip. On Windows and Mac, the installer saves you that.</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="kicker" data-i18n="q.kicker">FAQ</span>
+        <h2 data-i18n="q.title">Questions</h2>
+      </div>
+      <div class="faq">
+        <details><summary data-i18n="q1">Why Developer mode and “Load unpacked”?</summary><p data-i18n="a1">UIS My Work is an internal tool for the UIS team, so it is not in the Chrome Web Store. Chrome loads it from a folder on your computer, and Developer mode is the switch that allows that.</p></details>
+        <details><summary data-i18n="q2">Does it need my portal password?</summary><p data-i18n="a2">No. It works on your own signed-in portal tab and stores no passwords. Every action runs as you, so the portal records it as you.</p></details>
+        <details><summary data-i18n="q3">I already have an older version.</summary><p data-i18n="a3">Remove the old “UIS Portal – My Work Tracker” card in <code>chrome://extensions</code>, then follow the setup above. Your filters and settings are saved to your profile and come back by themselves.</p></details>
+        <details><summary data-i18n="q4">How do updates arrive?</summary><p data-i18n="a4">With live updates on, the extension notices a new version and installs it in a few seconds, waiting until you are not typing or saving. The tab reopens by itself. Without them, it shows a banner with the new zip.</p></details>
+        <details><summary data-i18n="q5">Which browsers and systems?</summary><p data-i18n="a5">Chrome and Microsoft Edge on Windows 10 and 11, and on macOS (Brave works on Mac too). On other systems, use the zip.</p></details>
+        <details><summary data-i18n="q6">Something went wrong.</summary><p data-i18n="a6">Run the installer again; repeating it is safe. In the extension, the update banner’s <b>Turn on live updates</b> shows whether the updater is installed. Still stuck? Ask your UIS My Work admin.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><b>UIS My Work</b> <span class="js-version" dir="ltr">v4.10.0</span> · <span data-i18n="foot">An internal tool for the UIS team</span></span>
+    <nav aria-label="Footer">
+      <a href="#setup" data-i18n="nav.setup">Setup</a>
+      <a class="js-src" href="https://github.com/AbdoBarakatDev/uis-my-work/tree/main/installers" data-i18n="foot.src">Installer source</a>
+      <a class="js-rel" href="https://github.com/AbdoBarakatDev/uis-my-work/releases" data-i18n="foot.rel">All versions</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // ---- which computer is this? highlight its tab and the hero button ----
+  var ua = navigator.userAgent || '';
+  var plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  var mobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.userAgentData && navigator.userAgentData.mobile);
+  var os = mobile ? '' : /mac/i.test(plat) ? 'mac' : /win/i.test(plat) ? 'win' : 'zip';
+  if (mobile) document.documentElement.classList.add('is-mobile');
+
+  // ---- tabs ----
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+  function select(id, focus) {
+    tabs.forEach(function (t) {
+      var on = t.id === 'tab-' + id;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      if (on && focus) t.focus();
+    });
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { select(t.id.slice(4)); });
+    t.addEventListener('keydown', function (e) {
+      var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (document.documentElement.dir === 'rtl') d = -d;
+      if (d) { e.preventDefault(); select(tabs[(i + d + tabs.length) % tabs.length].id.slice(4), true); }
+    });
+  });
+  if (os === 'win' || os === 'mac') {
+    var badge = document.querySelector('#tab-' + os + ' .yours'); if (badge) badge.hidden = false;
+    select(os);
+  } else if (os === 'zip') select('zip');
+  var hero = document.getElementById('heroSetup');
+  function heroLabel() { return os === 'win' ? 'cta.win' : os === 'mac' ? 'cta.mac' : 'cta.any'; }
+  hero.addEventListener('click', function () { if (os) select(os); });
+
+  // ---- English / Arabic ----
+  var AR = {
+    'nav.features': 'المزايا', 'nav.setup': 'التثبيت', 'nav.faq': 'أسئلة شائعة',
+    'hero.eyebrow': 'إضافة Chrome و Edge لفريق UIS',
+    'hero.title': 'شغلك على البوابة، في لوحة واحدة <em>مركّزة</em>.',
+    'hero.sub': 'تعمل UIS My Work فوق portal.uiscom.com: يومك في نظرة واحدة، ونقل المهام بين المراجعة والاختبار والقبول، والموافقات في مكان واحد، والنسخ الجديدة تتثبّت وحدها.',
+    'cta.win': 'التثبيت على ويندوز', 'cta.mac': 'التثبيت على ماك', 'cta.any': 'طريقة التثبيت', 'cta.zip': 'تحميل ملف zip',
+    'hero.m1': 'تستخدم تسجيل دخولك على البوابة', 'hero.m2': 'ويندوز وماك', 'hero.m3': 'تحدّث نفسها',
+    'hero.mobile': 'افتح هذه الصفحة من الكمبيوتر: UIS My Work تعمل على Chrome أو Edge في ويندوز وماك.',
+    'how.kicker': 'طريقة العمل', 'how.title': 'ثبّتها مرة واحدة، وانسَ أمر التحديثات.',
+    'how.1t': 'شغّل المثبّت', 'how.1d': 'دقيقة تقريبًا، لحسابك فقط، بدون صلاحيات مدير. ينزّل الإضافة وبرنامج التحديث الصغير.',
+    'how.2t': 'حمّلها في المتصفح', 'how.2d': 'اختر Load unpacked في صفحة الإضافات، والصق مسار المجلد الذي نسخه لك المثبّت.',
+    'how.3t': 'التحديثات تصل وحدها', 'how.3d': 'كل نسخة جديدة تتثبّت خلال ثوانٍ. بدون zip، وبدون زر إعادة تحميل.',
+    'f.kicker': 'المزايا', 'f.title': 'كل ما تحتاجه لشغلك اليومي على البوابة', 'f.sub': 'تعمل على تبويب البوابة المسجَّل دخولك فيه، فكل إجراء يُسجَّل باسمك.',
+    'f1t': 'يومي (My Day)', 'f1d': 'ما تركّز عليه اليوم، والموافقات التي تنتظرك، والمواعيد القريبة.',
+    'f2t': 'اللوحة والقائمة', 'f2d': 'لوحة Kanban من الـ Backlog حتى Done. اسحب البطاقة إلى العمود التالي المسموح، أو اعمل من القائمة.',
+    'f3t': 'الموافقات', 'f3d': 'مهام تنتظر منك مراجعة أو اختبارًا أو قبولًا، مع الدليل والسبب اللذين تطلبهما البوابة.',
+    'f4t': 'الطلبات', 'f4d': 'مهام جديدة وتعديلات وحذف تحتاج قرار المعتمِد، مع سجلّها.',
+    'f5t': 'الفريق والمحادثة', 'f5d': 'تقدّم كل زميل لحظة بلحظة، ورسائل مباشرة بجوار مهامك.',
+    'f6t': 'تحديثات تلقائية', 'f6d': 'النسخ الجديدة تتثبّت في ثوانٍ عندما لا تكون في منتصف عمل، ويعود التبويب وحده.',
+    's.kicker': 'التثبيت', 's.title': 'تثبيت UIS My Work', 's.sub': 'اختر جهازك. تفعل هذا مرة واحدة، وبعدها تتثبّت النسخ الجديدة وحدها.',
+    'tab.win': 'ويندوز', 'tab.mac': 'ماك', 'tab.zip': 'بدون تحديثات تلقائية', 'tab.yours': 'جهازك',
+    'w1t': 'حمّل المثبّت', 'w1b': 'تحميل لويندوز', 'm1b': 'تحميل لماك',
+    'keep': 'إذا سألك Chrome هل تحتفظ بالملف، اختر Keep. يسأل Chrome هذا السؤال مع كل ملفات السكربت.',
+    'w2t': 'شغّله مرة واحدة',
+    'w2d': 'افتح مجلد التنزيلات، وانقر بالزر الأيمن على <code>UIS-MyWork-LiveUpdates.ps1</code> واختر <b>Run with PowerShell</b>. في ويندوز 11 اضغط <b>Show more options</b> أولًا. يستغرق دقيقة تقريبًا، ويُثبَّت لحسابك فقط بدون صلاحيات مدير، وفي النهاية ينسخ لك مسار مجلد الإضافة.',
+    'w3t': 'حمّلها في Chrome أو Edge',
+    'w3d': 'افتح <code>chrome://extensions</code> (في Edge: <code>edge://extensions</code>)، وشغّل <b>Developer mode</b>، واحذف «UIS Portal – My Work Tracker» إن كانت عندك نسخة قديمة. اضغط <b>Load unpacked</b>، والصق المسار (<kbd>Ctrl</kbd>+<kbd>V</kbd>) في شريط العنوان، ثم اضغط <b>Select Folder</b>.',
+    'folder': 'المجلد:',
+    'go.t': 'ابدأ', 'go.d': 'سجّل الدخول على portal.uiscom.com، ثم اضغط أيقونة UIS My Work (ثبّتها من قائمة قطعة البازل) واختر <b>Open dashboard</b>.',
+    'does.t': 'ماذا يفعل المثبّت',
+    'does.w1': 'يضع الإضافة في <code>%LOCALAPPDATA%\\UIS\\MyWork\\extension</code>',
+    'does.w2': 'يضيف برنامج تحديث صغيرًا في <code>%LOCALAPPDATA%\\UIS\\MyWork\\updater</code> ويسجّله لـ Chrome و Edge على حساب ويندوز الخاص بك. إضافة UIS My Work وحدها تستطيع تشغيله.',
+    'does.m1': 'يضع الإضافة في <code>~/Library/Application Support/UIS/MyWork/extension</code>',
+    'does.m2': 'يضيف برنامج تحديث صغيرًا بجوارها ويسجّله لـ Chrome و Edge و Brave على حساب الماك الخاص بك. إضافة UIS My Work وحدها تستطيع تشغيله.',
+    'does.all': 'برنامج التحديث لا ينزّل إلا من خادم تحديثات UIS، ويتحقق من بصمة SHA-256 لكل ملف، ولا يشغّل أبدًا ما ينزّله.',
+    'does.src': 'اقرأ الكود المصدري للمثبّت',
+    'off.t': 'إيقاف التحديثات التلقائية', 'off.d': 'شغّل أداة الإزالة بنفس الطريقة. تحذف برنامج التحديث وتُبقي الإضافة.', 'off.b': 'تحميل أداة الإزالة',
+    'z1t': 'حمّل الإضافة',
+    'z2t': 'فك الضغط في مجلد دائم', 'z2d': 'مثلًا <code>Documents/UIS My Work</code>. ليس مجلد التنزيلات: المتصفح يحمّل الإضافة من هذا المجلد في كل مرة.',
+    'z3d': 'افتح <code>chrome://extensions</code> (في Edge: <code>edge://extensions</code>)، وشغّل <b>Developer mode</b>، واضغط <b>Load unpacked</b> واختر هذا المجلد.',
+    'z4t': 'التحديث لاحقًا', 'z4d': 'عندما تُظهر الإضافة تحديثًا، حمّل ملف zip الجديد، وفك ضغطه فوق نفس المجلد، ثم اضغط ↻ على بطاقة الإضافة في <code>chrome://extensions</code>. ويمكنك التحويل للتحديثات التلقائية في أي وقت.',
+    'zw.t': 'التحديث يدوي', 'zw.d': 'هذه الطريقة تعمل على أي جهاز، لكن كل نسخة جديدة تحتاج zip جديدًا. على ويندوز وماك يوفّر عليك المثبّت ذلك.',
+    'q.kicker': 'أسئلة شائعة', 'q.title': 'أسئلة',
+    'q1': 'لماذا Developer mode و «Load unpacked»؟', 'a1': 'UIS My Work أداة داخلية لفريق UIS، لذلك ليست في Chrome Web Store. يحمّلها Chrome من مجلد على جهازك، و Developer mode هو الخيار الذي يسمح بذلك.',
+    'q2': 'هل تحتاج كلمة مرور البوابة؟', 'a2': 'لا. تعمل على تبويب البوابة المسجَّل دخولك فيه ولا تحفظ أي كلمات مرور. كل إجراء يتم باسمك، فتسجّله البوابة باسمك.',
+    'q3': 'عندي نسخة قديمة بالفعل.', 'a3': 'احذف بطاقة «UIS Portal – My Work Tracker» القديمة من <code>chrome://extensions</code>، ثم اتبع خطوات التثبيت بالأعلى. الفلاتر والإعدادات محفوظة في ملفك الشخصي وتعود وحدها.',
+    'q4': 'كيف تصل التحديثات؟', 'a4': 'مع التحديثات التلقائية، تلاحظ الإضافة النسخة الجديدة وتثبّتها خلال ثوانٍ، وتنتظر حتى لا تكون تكتب أو تحفظ شيئًا. ويعود التبويب وحده. وبدونها تُظهر شريطًا فيه ملف zip الجديد.',
+    'q5': 'أي متصفحات وأنظمة؟', 'a5': 'Chrome و Microsoft Edge على ويندوز 10 و 11 وعلى macOS (و Brave أيضًا على الماك). على الأنظمة الأخرى استخدم ملف zip.',
+    'q6': 'حدثت مشكلة.', 'a6': 'شغّل المثبّت مرة أخرى؛ تكراره آمن. وداخل الإضافة، يوضّح زر <b>Turn on live updates</b> في شريط التحديث هل برنامج التحديث مثبّت. وإذا استمرت المشكلة، تواصل مع مسؤول UIS My Work.',
+    'foot': 'أداة داخلية لفريق UIS', 'foot.src': 'كود المثبّت', 'foot.rel': 'كل النسخ'
+  };
+  var nodes = Array.prototype.slice.call(document.querySelectorAll('[data-i18n]'));
+  nodes.forEach(function (n) { n.setAttribute('data-en', n.innerHTML); });
+  var EN_HERO = null;
+  function setLang(lang) {
+    var ar = lang === 'ar';
+    document.documentElement.lang = ar ? 'ar' : 'en';
+    document.documentElement.dir = ar ? 'rtl' : 'ltr';
+    nodes.forEach(function (n) {
+      var k = n.getAttribute('data-i18n');
+      n.innerHTML = ar && AR[k] ? AR[k] : n.getAttribute('data-en');
+    });
+    var heroSpan = hero.querySelector('[data-i18n]');
+    if (EN_HERO === null) EN_HERO = { 'cta.win': 'Set it up on Windows', 'cta.mac': 'Set it up on Mac', 'cta.any': 'Set it up' };
+    heroSpan.innerHTML = ar ? AR[heroLabel()] : EN_HERO[heroLabel()];
+    var b = document.getElementById('langBtn');
+    b.textContent = ar ? 'English' : 'عربي';
+    b.setAttribute('lang', ar ? 'en' : 'ar');
+    try { localStorage.setItem('uis-lang', lang); } catch (e) {}
+  }
+  document.getElementById('langBtn').addEventListener('click', function () { setLang(document.documentElement.lang === 'ar' ? 'en' : 'ar'); });
+  var saved = null; try { saved = localStorage.getItem('uis-lang'); } catch (e) {}
+  setLang(saved || (/^ar\b/i.test(navigator.language || '') ? 'ar' : 'en'));
+})();
+</script>
+</body>
+</html>
