@@ -571,5 +571,18 @@
   setLang(saved || (/^ar\b/i.test(navigator.language || '') ? 'ar' : 'en'));
 })();
 </script>
+<script id="uis-live-version">
+(function () {
+  fetch('https://api.github.com/repos/AbdoBarakatDev/uis-my-work/releases/latest', { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !j.tag_name) return;
+      var v = String(j.tag_name).replace(/^v/, '');
+      document.querySelectorAll('.js-version').forEach(function (e) { e.textContent = 'v' + v; });
+      var m = document.querySelector('meta[name="uis-version"]'); if (m) m.setAttribute('content', v);
+    })
+    .catch(function () {});
+})();
+</script>
 </body>
 </html>
