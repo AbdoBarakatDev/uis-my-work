@@ -34,14 +34,22 @@ $HostScript = @'
 #                           below into %LOCALAPPDATA%\UIS\MyWork\extension
 #                           -> { ok, version, changed }
 # It never downloads from anywhere else and never runs what it downloads.
+# Host 2: an update is installed only when its zip carries a valid RSA signature
+# ("sig" in version.json: RSA PKCS#1 v1.5 + SHA-256 over the exact zip bytes) made
+# with the UIS release key, whose public half is embedded below by
+# tools/embed-updater.js. The new version is unpacked next to the live folder and
+# swapped in, so a failed update never leaves a half-copied extension behind.
 param([string]$Mode = '')
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$HostVersion = '1'
+$HostVersion = '2'
 $Base = 'https://uis-mobile-portal.web.app'
+# Release public key (RSA modulus / exponent, base64). Filled in by tools/embed-updater.js.
+$PubN = 'pFNGMapuzwiXmHEKB9JimLONYF5eyvq/rVzcZt56gV07FUZhgZm5JjaVoGA4WXsHA/59Knd7Z0DW/9xtMtyn7bOKIRwdpj5HQW+s0ViVZLYmS7xwMMD8ly14q/6qwI9rnQccBJtSajQMewYIcoaxqOBwU6HOzHf1n6dVONHe3wixqItT/WluckY45ZbQCxmeMogC3UHAd4HEJlLvyrGlBBxMqfy1qWxO5Qpple00gaFqakM0rOfaxafv8OLX62ZINIi2+QoR3cmT7geWxS4JVnl4dXFm1Zz6bTYc+tb4Ma3vmfS6OB3lB1Ibwa2r2I8At4Xbw3z32wSqtxkCobi5w1FyjzbKgvI2/+xzLJFzdsCAsqVWSTT9fHHbAEanFaXG8HyfuvFf6onFzJcjfMPvgwVQ4yq7GDYRFDxT+JU1QY7mAmDXFOXjFp8ryuDRunHP1h9WVnk0piXhjw16NZLt/hvEAHf61IZ7Ni9FJwRNDtq+7Qanz++JKDw2RJ5aS/ZT'
+$PubE = 'AQAB'
 $Root = Split-Path -Parent $PSScriptRoot
 $Ext = Join-Path $Root 'extension'
 if (-not $Ext.TrimEnd('\').EndsWith('UIS\MyWork\extension')) { throw "Unexpected install folder: $Ext" }
@@ -96,41 +104,97 @@ function Invoke-WithRetry([scriptblock]$Action) {
     try { return (& $Action) } catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds 2 }
   }
 }
+# Throws unless $SigB64 is a valid release-key signature of $Data.
+function Assert-Signature([byte[]]$Data, [string]$SigB64) {
+  if ($PubN -like '__UIS*') { throw 'This updater has no release key. Run the latest live-updates installer again.' }
+  if (-not $SigB64) { throw 'The update is not signed. It was not installed.' }
+  try { $sig = [Convert]::FromBase64String($SigB64) } catch { throw 'The update signature is unreadable. It was not installed.' }
+  $p = New-Object Security.Cryptography.RSAParameters
+  $p.Modulus = [Convert]::FromBase64String($PubN)
+  $p.Exponent = [Convert]::FromBase64String($PubE)
+  if ('System.Security.Cryptography.RSACng' -as [type]) {
+    $rsa = New-Object Security.Cryptography.RSACng
+    $rsa.ImportParameters($p)
+    $ok = $rsa.VerifyData($Data, $sig, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
+  } else {
+    # older .NET: provider 24 (PROV_RSA_AES) is the one that supports SHA-256
+    $rsa = New-Object Security.Cryptography.RSACryptoServiceProvider (New-Object Security.Cryptography.CspParameters 24)
+    $rsa.PersistKeyInCsp = $false
+    $rsa.ImportParameters($p)
+    $ok = $rsa.VerifyData($Data, 'SHA256', $sig)
+  }
+  if (-not $ok) { throw 'The update signature is not valid. It was not installed.' }
+}
+# A crash between the two renames of a swap can leave no live folder: put the old one back.
+function Restore-Interrupted {
+  if (Test-Path -LiteralPath $Ext) { return }
+  $old = Get-ChildItem -LiteralPath $Root -Directory -Force -Filter '.old-*' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if ($old) { Rename-Item -LiteralPath $old.FullName -NewName 'extension' }
+}
+# Fallback when the live folder can't be renamed (a file in it is open): copy in place,
+# manifest.json LAST, so an interrupted copy still reports the old version and the
+# next check repairs it.
+function Copy-InPlace([string]$From) {
+  Get-ChildItem -LiteralPath $From -Force | Where-Object { $_.Name -ne 'manifest.json' } | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination $Ext -Recurse -Force
+  }
+  $keep = @{}
+  Get-ChildItem -LiteralPath $From -Recurse -Force -Name | ForEach-Object { $keep[$_.ToLower()] = $true }
+  Get-ChildItem -LiteralPath $Ext -Recurse -Force -Name | Sort-Object { $_.Length } -Descending | ForEach-Object {
+    if (-not $keep.ContainsKey($_.ToLower()) -and $_ -ne 'uis-managed.json' -and $_ -ne 'manifest.json') { Remove-Item -LiteralPath (Join-Path $Ext $_) -Recurse -Force -ErrorAction SilentlyContinue }
+  }
+  Copy-Item -LiteralPath (Join-Path $From 'manifest.json') -Destination $Ext -Force
+}
 function Invoke-Update {
+  Restore-Interrupted
   $info = Invoke-WithRetry { Invoke-RestMethod -Uri ("$Base/version.json?_=" + [DateTime]::UtcNow.Ticks) -UseBasicParsing -Headers @{ 'Cache-Control' = 'no-cache' } }
   $url = [string]$info.url
+  $want = [string]$info.version
   if (-not $url.StartsWith("$Base/")) { throw "Refusing to download from $url" }
+  if (-not $want) { throw 'The update information has no version.' }
+  if (-not $info.sha256) { throw 'The update information has no checksum. It was not installed.' }
   $cur = Get-InstalledVersion
-  if ($cur -and (Compare-Version $cur ([string]$info.version)) -ge 0) {
+  if ($cur -and (Compare-Version $cur $want) -ge 0) {
     Write-Managed
     return @{ ok = $true; version = $cur; changed = $false }
   }
-  $tmp = Join-Path $env:TEMP ('uis-mywork-' + [guid]::NewGuid().ToString('N'))
+  $id = [guid]::NewGuid().ToString('N')
+  $tmp = Join-Path $env:TEMP ('uis-mywork-' + $id)
+  $stage = Join-Path $Root ('.staging-' + $id)   # same drive as the live folder, so the swap is a rename
+  $old = Join-Path $Root ('.old-' + $id)
   New-Item -ItemType Directory -Force -Path $tmp | Out-Null
   try {
     $zip = Join-Path $tmp 'update.zip'
     Invoke-WithRetry { Invoke-WebRequest -Uri ($url + '?_=' + [DateTime]::UtcNow.Ticks) -OutFile $zip -UseBasicParsing }
-    if ($info.sha256) {
-      $h = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
-      if ($h -ne ([string]$info.sha256).ToUpper()) { throw 'The download is damaged (checksum mismatch). Try again later.' }
-    }
-    $x = Join-Path $tmp 'x'
-    Expand-Archive -Path $zip -DestinationPath $x -Force
-    $mf = Join-Path $x 'manifest.json'
+    $h = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
+    if ($h -ne ([string]$info.sha256).ToUpper()) { throw 'The download is damaged (checksum mismatch). Try again later.' }
+    Assert-Signature ([IO.File]::ReadAllBytes($zip)) ([string]$info.sig)
+    Expand-Archive -Path $zip -DestinationPath $stage -Force
+    $mf = Join-Path $stage 'manifest.json'
     if (-not (Test-Path $mf)) { throw 'The download has no manifest.json' }
     $nv = [string](([IO.File]::ReadAllText($mf)) | ConvertFrom-Json).version
-    New-Item -ItemType Directory -Force -Path $Ext | Out-Null
-    # copy the new files over the old ones, then drop files the new version no longer has
-    Copy-Item -Path (Join-Path $x '*') -Destination $Ext -Recurse -Force
-    $keep = @{}
-    Get-ChildItem -LiteralPath $x -Recurse -Force -Name | ForEach-Object { $keep[$_.ToLower()] = $true }
-    Get-ChildItem -LiteralPath $Ext -Recurse -Force -Name | Sort-Object { $_.Length } -Descending | ForEach-Object {
-      if (-not $keep.ContainsKey($_.ToLower()) -and $_ -ne 'uis-managed.json') { Remove-Item -LiteralPath (Join-Path $Ext $_) -Recurse -Force -ErrorAction SilentlyContinue }
+    if ($nv -ne $want) { throw "The download is v$nv, not v$want. It was not installed." }
+    if ($cur -and (Compare-Version $nv $cur) -le 0) { throw "The download (v$nv) is not newer than v$cur. It was not installed." }
+    $managed = Join-Path $Ext 'uis-managed.json'
+    if (Test-Path -LiteralPath $managed) { Copy-Item -LiteralPath $managed -Destination $stage -Force }
+    if (-not (Test-Path -LiteralPath $Ext)) {
+      Rename-Item -LiteralPath $stage -NewName 'extension'
+    } else {
+      $moved = $false
+      try { Rename-Item -LiteralPath $Ext -NewName (Split-Path -Leaf $old); $moved = $true } catch {}
+      if ($moved) {
+        try { Rename-Item -LiteralPath $stage -NewName 'extension' }
+        catch { Rename-Item -LiteralPath $old -NewName 'extension'; throw ('Could not put the new version in place: ' + $_.Exception.Message) }
+      } else {
+        Copy-InPlace $stage
+      }
     }
     Write-Managed
     return @{ ok = $true; version = $nv; changed = $true }
   } finally {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }
+    if ((Test-Path -LiteralPath $old) -and (Test-Path -LiteralPath $Ext)) { Remove-Item -LiteralPath $old -Recurse -Force -ErrorAction SilentlyContinue }
   }
 }
 

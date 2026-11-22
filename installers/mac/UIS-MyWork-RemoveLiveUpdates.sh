@@ -65,18 +65,31 @@ cat > "$UPD/host.sh" <<'UIS_HOST_EOF'
 #                           below into ~/Library/Application Support/UIS/MyWork/extension
 #                           -> { ok, version, changed }
 # It never downloads from anywhere else and never runs what it downloads.
-# Plain bash 3.2 and tools that come with macOS (curl, unzip, shasum, dd, od).
+# Host 2: an update is installed only when its zip carries a valid RSA signature
+# ("sig" in version.json: RSA PKCS#1 v1.5 + SHA-256 over the exact zip bytes) made
+# with the UIS release key, whose public half is embedded below by
+# tools/embed-updater.js. The new version is unpacked next to the live folder and
+# swapped in, so a failed update never leaves a half-copied extension behind.
+# Plain bash 3.2 and tools that come with macOS (curl, unzip, shasum, openssl, dd, od).
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 export LC_ALL=C
 
-HOST_VERSION='1'
+HOST_VERSION='2'
 BASE='https://uis-mobile-portal.web.app'
+# Release public key (SubjectPublicKeyInfo DER, base64). Filled in by tools/embed-updater.js.
+PUBKEY_B64='MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEApFNGMapuzwiXmHEKB9JimLONYF5eyvq/rVzcZt56gV07FUZhgZm5JjaVoGA4WXsHA/59Knd7Z0DW/9xtMtyn7bOKIRwdpj5HQW+s0ViVZLYmS7xwMMD8ly14q/6qwI9rnQccBJtSajQMewYIcoaxqOBwU6HOzHf1n6dVONHe3wixqItT/WluckY45ZbQCxmeMogC3UHAd4HEJlLvyrGlBBxMqfy1qWxO5Qpple00gaFqakM0rOfaxafv8OLX62ZINIi2+QoR3cmT7geWxS4JVnl4dXFm1Zz6bTYc+tb4Ma3vmfS6OB3lB1Ibwa2r2I8At4Xbw3z32wSqtxkCobi5w1FyjzbKgvI2/+xzLJFzdsCAsqVWSTT9fHHbAEanFaXG8HyfuvFf6onFzJcjfMPvgwVQ4yq7GDYRFDxT+JU1QY7mAmDXFOXjFp8ryuDRunHP1h9WVnk0piXhjw16NZLt/hvEAHf61IZ7Ni9FJwRNDtq+7Qanz++JKDw2RJ5aS/ZTAgMBAAE='
 HERE="$(cd "$(dirname "$0")" && pwd)"
 EXT="$(dirname "$HERE")/extension"
+ROOT="$(dirname "$EXT")"
 MODE='message'
 [ "$1" = 'install' ] && MODE='install'
-TMP=''
-trap '[ -n "$TMP" ] && rm -rf "$TMP"' EXIT
+TMP=''; STAGE=''; OLD=''
+cleanup() {
+  [ -n "$TMP" ] && rm -rf "$TMP"
+  [ -n "$STAGE" ] && rm -rf "$STAGE"
+  [ -n "$OLD" ] && [ -d "$EXT" ] && rm -rf "$OLD"
+}
+trap cleanup EXIT
 
 # ---- native messaging: 4-byte little-endian length, then UTF-8 JSON ----
 send() {
@@ -155,18 +168,55 @@ get_file() {
   return 1
 }
 
+# fails unless $2 (base64) is a valid release-key signature of file $1
+verify_sig() {
+  case "$PUBKEY_B64" in __UIS*) fail 'This updater has no release key. Run the latest live-updates installer again.' ;; esac
+  [ -n "$2" ] || fail 'The update is not signed. It was not installed.'
+  command -v openssl >/dev/null 2>&1 || fail 'openssl is missing, so the update signature cannot be checked. It was not installed.'
+  { echo '-----BEGIN PUBLIC KEY-----'; printf '%s' "$PUBKEY_B64" | fold -w 64; echo; echo '-----END PUBLIC KEY-----'; } > "$TMP/pub.pem"
+  printf '%s' "$2" | openssl base64 -d -A > "$TMP/sig.bin" 2>/dev/null && [ -s "$TMP/sig.bin" ] || fail 'The update signature is unreadable. It was not installed.'
+  openssl dgst -sha256 -verify "$TMP/pub.pem" -signature "$TMP/sig.bin" "$1" >/dev/null 2>&1 || fail 'The update signature is not valid. It was not installed.'
+}
+# a crash between the two renames of a swap can leave no live folder: put the old one back
+restore_interrupted() {
+  local o
+  [ -d "$EXT" ] && return 0
+  o=$(ls -dt "$ROOT"/.old-* 2>/dev/null | head -n 1)
+  [ -n "$o" ] && mv "$o" "$EXT"
+  return 0
+}
+# fallback when the live folder can't be moved: copy in place, manifest.json LAST, so an
+# interrupted copy still reports the old version and the next check repairs it
+copy_in_place() {
+  local from="$1" p f
+  for f in "$from"/* "$from"/.[!.]*; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = 'manifest.json' ] && continue
+    cp -R "$f" "$EXT/" || fail "Could not copy the new version into $EXT"
+  done
+  (cd "$EXT" && find . -mindepth 1 -depth -print) | while IFS= read -r p; do
+    [ "$p" = './uis-managed.json' ] && continue
+    [ "$p" = './manifest.json' ] && continue
+    [ -e "$from/$p" ] || rm -rf "$EXT/$p"
+  done
+  cp "$from/manifest.json" "$EXT/manifest.json" || fail "Could not copy the new version into $EXT"
+}
+
 RESULT=''
 do_update() {
-  local info url ver sha cur zip x nv h p
+  local info url ver sha sig cur zip nv h
+  restore_interrupted
   info=$(get_text "$BASE/version.json?_=$(date +%s)") || fail 'Could not reach the UIS update server. Check your internet connection.'
   url=$(printf '%s\n' "$info" | json_get url)
   ver=$(printf '%s\n' "$info" | json_get version)
   sha=$(printf '%s\n' "$info" | json_get sha256)
+  sig=$(printf '%s\n' "$info" | json_get sig)
   case "$url" in
     "$BASE/"*) ;;
     *) fail "Refusing to download from $url" ;;
   esac
   [ -n "$ver" ] || fail 'The update information has no version.'
+  [ -n "$sha" ] || fail 'The update information has no checksum. It was not installed.'
   cur=$(installed_version)
   if [ -n "$cur" ] && [ "$(ver_cmp "$cur" "$ver")" -ge 0 ]; then
     write_managed
@@ -174,23 +224,32 @@ do_update() {
     return 0
   fi
   TMP=$(mktemp -d "${TMPDIR:-/tmp}/uis-mywork.XXXXXX") || fail 'Could not make a temporary folder.'
-  zip="$TMP/update.zip"; x="$TMP/x"
+  zip="$TMP/update.zip"
   get_file "$url?_=$(date +%s)" "$zip" || fail 'Could not download the new version. Try again later.'
-  if [ -n "$sha" ]; then
-    h=$(sha256_of "$zip")
-    [ "$h" = "$(printf '%s' "$sha" | tr 'a-f' 'A-F')" ] || fail 'The download is damaged (checksum mismatch). Try again later.'
+  h=$(sha256_of "$zip")
+  [ "$h" = "$(printf '%s' "$sha" | tr 'a-f' 'A-F')" ] || fail 'The download is damaged (checksum mismatch). Try again later.'
+  verify_sig "$zip" "$sig"
+  # unpack next to the live folder (same disk), so the swap below is a rename
+  STAGE="$ROOT/.staging-$$"
+  rm -rf "$STAGE"; mkdir -p "$STAGE" || fail "Could not create $STAGE"
+  unzip -q -o "$zip" -d "$STAGE" >/dev/null 2>&1 || ditto -x -k "$zip" "$STAGE" >/dev/null 2>&1 || fail 'Could not unpack the new version.'
+  [ -f "$STAGE/manifest.json" ] || fail 'The download has no manifest.json'
+  nv=$(json_get version < "$STAGE/manifest.json")
+  [ "$nv" = "$ver" ] || fail "The download is v$nv, not v$ver. It was not installed."
+  if [ -n "$cur" ] && [ "$(ver_cmp "$nv" "$cur")" -le 0 ]; then fail "The download (v$nv) is not newer than v$cur. It was not installed."; fi
+  [ -f "$EXT/uis-managed.json" ] && cp "$EXT/uis-managed.json" "$STAGE/"
+  if [ ! -d "$EXT" ]; then
+    mv "$STAGE" "$EXT" || fail "Could not put the new version in $EXT"
+  else
+    OLD="$ROOT/.old-$$"
+    rm -rf "$OLD"
+    if mv "$EXT" "$OLD"; then
+      if ! mv "$STAGE" "$EXT"; then mv "$OLD" "$EXT"; OLD=''; fail "Could not put the new version in $EXT"; fi
+    else
+      OLD=''
+      copy_in_place "$STAGE"
+    fi
   fi
-  mkdir -p "$x"
-  unzip -q -o "$zip" -d "$x" >/dev/null 2>&1 || ditto -x -k "$zip" "$x" >/dev/null 2>&1 || fail 'Could not unpack the new version.'
-  [ -f "$x/manifest.json" ] || fail 'The download has no manifest.json'
-  nv=$(json_get version < "$x/manifest.json")
-  mkdir -p "$EXT" || fail "Could not create $EXT"
-  # copy the new files over the old ones, then drop files the new version no longer has
-  cp -R "$x/." "$EXT/" || fail "Could not copy the new version into $EXT"
-  (cd "$EXT" && find . -mindepth 1 -depth -print) | while IFS= read -r p; do
-    [ "$p" = './uis-managed.json' ] && continue
-    [ -e "$x/$p" ] || rm -rf "$EXT/$p"
-  done
   write_managed
   RESULT="{\"ok\":true,\"version\":$(json_str "$nv"),\"changed\":true}"
 }
