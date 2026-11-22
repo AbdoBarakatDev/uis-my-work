@@ -173,6 +173,25 @@ try {
   Write-Host ''
   Write-Host '  UIS My Work - turning on live updates' -ForegroundColor Cyan
   Write-Host ''
+
+  # An old "auto-update" setting (uis-auto-update-setup.reg, merged as admin) makes Chrome
+  # and Edge force-install the old 4.5.1 copy instead of the folder you load. Remove it.
+  $Policy = @('HKLM:\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist', 'HKLM:\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist')
+  $stale = @()
+  foreach ($p in $Policy) {
+    if (Test-Path $p) {
+      $props = Get-ItemProperty -Path $p
+      foreach ($n in $props.PSObject.Properties.Name) { if ("$($props.$n)" -like "$ExtId*") { $stale += ,@($p, $n) } }
+    }
+  }
+  if ($stale.Count) {
+    Write-Host '  - removing an old setting that keeps version 4.5.1 (Windows asks for permission once)' -ForegroundColor Yellow
+    $cmd = ($stale | ForEach-Object { "Remove-ItemProperty -LiteralPath '$($_[0])' -Name '$($_[1])' -Force -ErrorAction SilentlyContinue" }) -join '; '
+    try { Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command', $cmd }
+    catch { Write-Host '    Permission was not given. Ask IT to remove the UIS My Work entry under ExtensionInstallForcelist.' -ForegroundColor Red }
+    Write-Host '    Done. Close ALL Chrome / Edge windows once after this setup.' -ForegroundColor Yellow
+  }
+
   New-Item -ItemType Directory -Force -Path $Upd, $Ext | Out-Null
 
   Write-Host '  - installing the updater'
